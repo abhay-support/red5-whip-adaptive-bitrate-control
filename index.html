@@ -29,7 +29,79 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
     <meta name="robots" content="noindex, nofollow" />
     <title>Red5 WHIP Adaptive Bitrate Controller</title>
     <script src="//webrtchacks.github.io/adapter/adapter-latest.js"></script>
-    <script src="//cdn.jsdelivr.net/npm/red5pro-webrtc-sdk@latest/red5pro-sdk.min.js"></script>
+    <!-- <script src="//cdn.jsdelivr.net/npm/red5pro-webrtc-sdk@latest/red5pro-sdk.min.js"></script> -->
+    <script src="lib/red5pro/red5pro-sdk.min.js"></script>
+    <script src="script/StatsMonitor.js"></script>
+    <script>
+        ;(function () {
+          console.log('------- USAGE --------')
+          console.log('')
+          console.log(
+            'This page is designed to establish a Red5 Player using query params. You can provide query params in the URL in order to configure the player.'
+          )
+          console.log('The following query params are available:')
+          console.log(
+            '%c [host] ' +
+              '%c       : hostname or IP. Default: `window.location.hostname`',
+            'background: #222; color: #ebefd0',
+            'background: #fff; color: #222'
+          )
+          console.log('')
+          console.log(
+            '%c [app] ' + '%c       : app context. Default: `live`',
+            'background: #222; color: #ebefd0',
+            'background: #fff; color: #222'
+          )
+          console.log('')
+          console.log(
+            '%c [stream_name] ' + '%c       : The name of the stream to pub/sub. Default: `mystream`',
+            'background: #222; color: #ebefd0',
+            'background: #fff; color: #222'
+          )
+          console.log('')
+          console.log(
+            '%c [api_version] ' + '%c       : The version of the Stream Manager 2.0 API. Default: `v1`',
+            'background: #222; color: #ebefd0',
+            'background: #fff; color: #222'
+          )
+          console.log('')
+          console.log(
+            '%c [node_group] ' + '%c       : The name of the node group to target if using Stream Manager 2.0. Default: `default`',
+            'background: #222; color: #ebefd0',
+            'background: #fff; color: #222'
+          )
+          console.log('')
+          console.log(
+            '%c [rta_user] ' + '%c       : Username for RoundTrip Authentication if using. Default: `undefined`',
+            'background: #222; color: #ebefd0',
+            'background: #fff; color: #222'
+          )
+          console.log('')
+          console.log(
+            '%c [rta_pass] ' + '%c       : Password for RoundTrip Authentication if using. Default: `undefined`',
+            'background: #222; color: #ebefd0',
+            'background: #fff; color: #222'
+          )
+          console.log('')
+          console.log(
+            '%c [rta_token] ' + '%c       : Token for RoundTrip Authentication if using. Default: `undefined`',
+            'background: #222; color: #ebefd0',
+            'background: #fff; color: #222'
+          )
+          console.log('')
+          console.log(
+            '%c [standalone] ' + '%c       : Flag to indicate that the streaming is requested on a standalone deployment - not Stream Manager 2.0. Default: `false`',
+            'background: #222; color: #ebefd0',
+            'background: #fff; color: #222'
+          )
+          console.log('')
+          console.log(
+            '%c [object_fit] ' + '%c       : Object fit style to assign to the video elements. https://developer.mozilla.org/en-US/docs/Web/CSS/object-fit',
+            'background: #222; color: #ebefd0',
+            'background: #fff; color: #222'
+          )
+        })()
+    </script>
     <style>
       :root {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
@@ -84,25 +156,50 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
         aspect-ratio: 16 / 9;
         max-height: 360px;
       }
+
+      .publisher-container {
+        position: relative;
+      }
+
+      .live-status-indicator {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        padding: 4px 12px;
+        background-color: red;
+        color: white;
+        font-weight: bold;
+        font-size: 14px;
+        border-radius: 5px;
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      .hidden {
+        display: none;
+      }
     </style>
     </head>
     <body>
         <div class="app">
             <div class="publisher-container">
+                <div id="live-status-indicator" class="live-status-indicator hidden">LIVE</div>
                 <video id="red5pro-publisher" class="red5pro-publisher" muted autoplay playsinline></video>
             </div>
         </div>
         <script>
-            ;((window, red5) => {
+            ;((window, red5, StatsMonitor) => {
+              const { WHIPClient, setLogLevel } = red5
+              setLogLevel(red5.LOG_LEVELS.DEBUG)
+
               const publisherContainer = document.querySelector('.publisher-container')
+              const liveIndicator = document.getElementById('live-status-indicator')
       
               const searchParams = new URLSearchParams(window.location.search)
               const query = (param, defaultValue) => {
                 return searchParams.has(param) ? searchParams.get(param) : defaultValue
               }
-      
-              const RETRY_DELAY = 2000
-      
+
               const host = query('host', window.location.hostName)
               const app = query('app', 'live')
               const streamName = query('stream_name', 'mystream')
@@ -113,13 +210,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
               const rtaToken = query('rta_token')
               const objectFit = query('object_fit', 'contain')
               const standalone = query('standalone', 'false') === 'true'
-              const retry = query('retry', 'true') === 'true'
-              const retryDelay = parseInt(query('retry_delay', RETRY_DELAY), 10)
       
               let publisher
               let shuttingDown = false
-              const { WHIPClient, setLogLevel } = red5
-              setLogLevel(red5.LOG_LEVELS.DEBUG)
+              let statsMonitor = new StatsMonitor()
       
               const configureAuth = params => {
                 if (rtaUser && rtaPass) {
@@ -149,20 +243,34 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                   })
                 }
               }
-      
+
               const onPublisherEvent = event => {
                 const { type } = event
+                if (type === 'Publish.Available') {
+                    liveIndicator.classList.remove('hidden')
+                } else if (type === 'WebRTC.Stats.Report') {
+                    const { data } = event
+                    statsMonitor.process(data)
+                }
                 console.log('[Publisher]', type)
               }
       
               const publish = async () => {
                 try {
-                  const config = getConfiguration()
-                  console.log('config', config)
+                  const config = {
+                    ...getConfiguration(),
+                    clearMediaOnUnpublish: true,
+                    stats: {
+                        endpoint: red5.StatsEndpointType.EVENT_TRANSPORT
+                    }
+                  }
                   publisher = new WHIPClient()
                   publisher.on('*', onPublisherEvent)
                   await publisher.init(config)
                   await publisher.publish()
+                  publisherContainer.onclick = () => {
+                    unpublish()
+                  }
                 } catch (e) {
                   await unpublish()
                 }
@@ -173,12 +281,13 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                   return
                 }
                 try {
-                  publisher.off('*', onPublisherEvent)
                   await publisher.unpublish()
-                  publisher = undefined
+                  publisher.off('*', onPublisherEvent)
                 } catch (e) {
                   // noop.
                 }
+                publisher = undefined
+                liveIndicator.classList.add('hidden')
               }
       
               const start = async () => {
@@ -191,6 +300,13 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                   alert(`Could not start publisher: ${e.message}`)
                 }
               }
+
+              const onLossy = () => {
+                console.log('[stat] Monitor: onLossy')
+              }
+              const onRecovery = () => {
+                console.log('[stat] Monitor: onRecovery')
+              }
       
               // Clean up on leave of page.
               window.addEventListener('beforeunload', async () => {
@@ -202,8 +318,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                 await unpublish()
               })
       
+              statsMonitor.setOnLossy(onLossy)
+              statsMonitor.setOnRecovery(onRecovery)
               start()
-            })(window, window.red5prosdk)
+            })(window, window.red5prosdk, window.StatsMonitor)
           </script>
     </body>
 </html>
