@@ -81,13 +81,15 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
 
       video {
         object-fit: contain;
+        aspect-ratio: 16 / 9;
+        max-height: 360px;
       }
     </style>
     </head>
     <body>
         <div class="app">
             <div class="publisher-container">
-                <video id="video" class="red5pro-publisher" autoplay playsinline></video>
+                <video id="red5pro-publisher" class="red5pro-publisher" muted autoplay playsinline></video>
             </div>
         </div>
         <script>
@@ -116,7 +118,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
       
               let publisher
               let shuttingDown = false
-              const { WHIPClient } = red5
+              const { WHIPClient, setLogLevel } = red5
+              setLogLevel(red5.LOG_LEVELS.DEBUG)
       
               const configureAuth = params => {
                 if (rtaUser && rtaPass) {
@@ -185,7 +188,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                 try {
                   await publish()
                 } catch (e) {
-                  alert(`Could not start player: ${e.message}`)
+                  alert(`Could not start publisher: ${e.message}`)
                 }
               }
       
