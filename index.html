@@ -301,11 +301,38 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                 }
               }
 
-              const onLossy = () => {
-                console.log('[stat] Monitor: onLossy')
+              const getVideoTrackSender = async (connection) => {
+                const senders = await connection.getSenders()
+                return senders.find(sender => sender.track.kind === 'video')
               }
-              const onRecovery = () => {
-                console.log('[stat] Monitor: onRecovery')
+
+              const onLossy = async ({ packetLossRate, rtt }) => {
+                const videoTrackSender = await getVideoTrackSender(publisher.getPeerConnection())
+                if (videoTrackSender) {
+                    const parameters = videoTrackSender.getParameters()
+                    if (!parameters.encodings) {
+                        parameters.encodings = [{}]
+                    }
+                    parameters.encodings[0].maxBitrate = 320 * 1000
+                    parameters.encodings[0].scaleResolutionDownBy = 4
+                    await videoTrackSender.setParameters(parameters)
+                    console.log('[stat] Monitor: onLossy', parameters)
+                }
+                console.log('[stat] Monitor: onLossy', packetLossRate, rtt)
+              }
+              const onRecovery = async ({ packetLossRate, rtt }) => {
+                const videoTrackSender = await getVideoTrackSender(publisher.getPeerConnection())
+                if (videoTrackSender) {
+                    const parameters = videoTrackSender.getParameters()
+                    if (!parameters.encodings) {
+                        parameters.encodings = [{}]
+                    }
+                    parameters.encodings[0].maxBitrate = 750 * 1000
+                    parameters.encodings[0].scaleResolutionDownBy = 1
+                    await videoTrackSender.setParameters(parameters)
+                    console.log('[stat] Monitor: onRecovery', parameters)
+                }
+                console.log('[stat] Monitor: onRecovery', packetLossRate, rtt)
               }
       
               // Clean up on leave of page.
