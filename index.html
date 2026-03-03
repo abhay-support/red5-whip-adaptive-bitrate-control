@@ -134,9 +134,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
 
       .app {
         display: flex;
-        flex-direction: row;
-        column-gap: 16px;
-        column-gap: 16px;
+        flex-direction: column;
+        row-gap: 16px;
         width: 100%;
         height: 100%;
       }
@@ -161,6 +160,17 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
         position: relative;
       }
 
+      .stats-container {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px;
+        background-color: white;
+        border-radius: 5px;
+        color: black;
+      }
+
       .live-status-indicator {
         position: absolute;
         top: 10px;
@@ -178,13 +188,65 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
       .hidden {
         display: none;
       }
+
+      .connection-status-indicator {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        padding: 4px 12px;
+        background-color: green;
+        color: white;
+        font-weight: bold;
+        font-size: 14px;
+        border-radius: 5px;
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      .lossy-status-indicator {
+        position: absolute;
+        top: 40px;
+        left: 10px;
+        padding: 4px 12px;
+        background-color: red;
+        color: white;
+        font-weight: bold;
+        font-size: 14px;
+        border-radius: 5px;
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      .recovery-status-indicator {
+        position: absolute;
+        top: 40px;
+        left: 10px;
+        padding: 4px 12px;
+        background-color: green;
+        color: white;
+        font-weight: bold;
+        font-size: 14px;
+        border-radius: 5px;
+        z-index: 10;
+        pointer-events: none;
+      }
     </style>
     </head>
     <body>
         <div class="app">
             <div class="publisher-container">
+                <div id="connection-status-indicator" class="connection-status-indicator hidden">CONNECTING...</div>
                 <div id="live-status-indicator" class="live-status-indicator hidden">LIVE</div>
+                <div id="lossy-status-indicator" class="lossy-status-indicator hidden">LOSSY</div>
+                <div id="recovery-status-indicator" class="recovery-status-indicator hidden">RECOVERY</div>
                 <video id="red5pro-publisher" class="red5pro-publisher" muted autoplay playsinline></video>
+            </div>
+            <div class="stats-container">
+                <div id="estimated-bitrate" class="estimated-bitrate">Estimated Bitrate: 0</div>
+                <div id="frames-encode-sent-ratio" class="frames-encode-sent-ratio">Frames Encode/Sent Ratio: 0</div>
+                <div id="packet-loss-rate" class="packet-loss-rate">Packet Loss Rate: 0</div>
+                <div id="rtt" class="rtt">RTT: 0</div>
+                <div id="pli-fir-rate" class="pli-fir-rate">PLI/FIR Rate: 0</div>
             </div>
         </div>
         <script>
@@ -192,8 +254,26 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
               const { WHIPClient, setLogLevel } = red5
               setLogLevel(red5.LOG_LEVELS.DEBUG)
 
+              const thresholds = {
+                  PACKET_LOSS_HIGH: 5,
+                  PACKET_LOSS_RECOVERY: 2,
+                  RTT_HIGH: 0.3,
+                  RTT_RECOVERY: 0.15,
+                  PLI_FIR_RATE_HIGH: 3,
+                  PLI_FIR_RATE_RECOVERY: 1,
+                  CONSECUTIVE_SAMPLES_TO_TRIGGER: 3
+              }
+
               const publisherContainer = document.querySelector('.publisher-container')
+              const connectionIndicator = document.getElementById('connection-status-indicator')
               const liveIndicator = document.getElementById('live-status-indicator')
+              const lossyIndicator = document.getElementById('lossy-status-indicator')
+              const recoveryIndicator = document.getElementById('recovery-status-indicator')
+              const estimatedBitrateElement = document.getElementById('estimated-bitrate')
+              const framesEncodeSentRatioElement = document.getElementById('frames-encode-sent-ratio')
+              const packetLossRateElement = document.getElementById('packet-loss-rate')
+              const rttElement = document.getElementById('rtt')
+              const pliFirRateElement = document.getElementById('pli-fir-rate')
       
               const searchParams = new URLSearchParams(window.location.search)
               const query = (param, defaultValue) => {
@@ -213,7 +293,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
       
               let publisher
               let shuttingDown = false
-              let statsMonitor = new StatsMonitor()
+              let statsMonitor = new StatsMonitor({
+                thresholds
+              })
       
               const configureAuth = params => {
                 if (rtaUser && rtaPass) {
@@ -247,31 +329,60 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
               const onPublisherEvent = event => {
                 const { type } = event
                 if (type === 'Publish.Available') {
+                    connectionIndicator.classList.add('hidden')
                     liveIndicator.classList.remove('hidden')
                 } else if (type === 'WebRTC.Stats.Report') {
                     const { data } = event
-                    statsMonitor.process(data)
+                    const stats = statsMonitor.process(data)
+                    if (stats) {
+                        const { estimatedBitrate, framesEncoded, framesSent, packetLossRate, rtt, pliFirRate } = stats
+                        // TODO: place the stats in the DOM.
+                        estimatedBitrateElement.textContent = `Estimated Bitrate: ${estimatedBitrate}`
+                        framesEncodeSentRatioElement.textContent = `Frames Encode/Sent Ratio: ${framesEncoded / framesSent}`
+                        packetLossRateElement.textContent = `Packet Loss Rate: ${packetLossRate}`
+                        rttElement.textContent = `RTT: ${rtt}`
+                        pliFirRateElement.textContent = `PLI/FIR Rate: ${pliFirRate}`
+                    }
                 }
                 console.log('[Publisher]', type)
               }
       
               const publish = async () => {
                 try {
+                  connectionIndicator.classList.remove('hidden')
                   const config = {
                     ...getConfiguration(),
+                    mediaConstraints: {
+                        audio: true,
+                        video: {
+                            width: {
+                                exact: 1920
+                            },
+                            height: {
+                                exact: 1080
+                            },
+                            frameRate: {
+                                min: 30,
+                                max: 60
+                            }
+                        }
+                    },
                     clearMediaOnUnpublish: true,
                     stats: {
-                        endpoint: red5.StatsEndpointType.EVENT_TRANSPORT
+                        endpoint: red5.StatsEndpointType.EVENT_TRANSPORT,
+                        interval: 1000
                     }
                   }
                   publisher = new WHIPClient()
                   publisher.on('*', onPublisherEvent)
                   await publisher.init(config)
                   await publisher.publish()
+                  // TODO: Remove below. Just for testing.
                   publisherContainer.onclick = () => {
                     unpublish()
                   }
                 } catch (e) {
+                  connectionIndicator.classList.add('hidden')
                   await unpublish()
                 }
               }
@@ -288,6 +399,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                 }
                 publisher = undefined
                 liveIndicator.classList.add('hidden')
+                lossyIndicator.classList.add('hidden')
+                recoveryIndicator.classList.add('hidden')
+                connectionIndicator.classList.add('hidden')
               }
       
               const start = async () => {
@@ -317,6 +431,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                     parameters.encodings[0].scaleResolutionDownBy = 4
                     await videoTrackSender.setParameters(parameters)
                     console.log('[stat] Monitor: onLossy', parameters)
+                    lossyIndicator.classList.remove('hidden')
+                    recoveryIndicator.classList.add('hidden')
                 }
                 console.log('[stat] Monitor: onLossy', packetLossRate, rtt)
               }
@@ -331,6 +447,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                     parameters.encodings[0].scaleResolutionDownBy = 1
                     await videoTrackSender.setParameters(parameters)
                     console.log('[stat] Monitor: onRecovery', parameters)
+                    recoveryIndicator.classList.remove('hidden')
+                    lossyIndicator.classList.add('hidden')
                 }
                 console.log('[stat] Monitor: onRecovery', packetLossRate, rtt)
               }
