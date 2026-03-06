@@ -104,8 +104,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
     </script>
     <style>
       :root {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-          Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+        font-family: 'Courier New', Courier, monospace;
         line-height: 1.5;
         font-weight: 400;
         height: 100%;
@@ -118,158 +117,248 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
         -moz-osx-font-smoothing: grayscale;
         -webkit-text-size-adjust: 100%;
 
-        --color-black: rgb(12, 12, 12);
-        --color-red5: rgb(208, 56, 50);
-        --color-gray: rgb(136, 136, 136);
-        --color-offwhite: rgb(245, 245, 245, 0.87);
+        --color-background: rgb(30, 39, 46);
+        --color-panel: rgb(45, 55, 65);
+        --color-cyan: rgb(0, 188, 212);
+        --color-red: rgb(231, 76, 60);
+        --color-text: rgb(200, 200, 200);
+        --color-text-muted: rgb(140, 160, 170);
+        --color-border: rgb(60, 75, 85);
+        --color-light-gray: #637381;
       }
 
       body {
         margin: 0;
-        font-weight: 300;
-        font-size: 0.8rem;
-        background-color: var(--color-black);
+        font-weight: 400;
+        font-size: 14px;
+        background-color: var(--color-background);
         height: 100%;
       }
 
       .app {
         display: flex;
+        flex-direction: row;
+        gap: 20px;
+        padding: 40px;
+        height: calc(100% - 80px);
+        box-sizing: border-box;
+      }
+
+      .left-panel {
+        display: flex;
         flex-direction: column;
-        row-gap: 16px;
-        width: 640px;
+        gap: 20px;
+        flex: 0 0 auto;
       }
 
-      .app .video-container {
+      .right-panel {
         flex: 1;
-        flex-basis: 0;
-      }
-
-      .red5pro-subscriber {
-        width: 100%;
-        height: 100%;
-      }
-
-      video {
-        object-fit: contain;
-        aspect-ratio: 16 / 9;
-        max-height: 360px;
+        display: flex;
+        flex-direction: column;
+        min-width: 400px;
       }
 
       .publisher-container {
         position: relative;
+        background-color: rgb(10, 10, 10);
+        border: 2px solid var(--color-border);
+        border-radius: 4px;
+        overflow: hidden;
       }
 
-      .stats-container {
-        position: relative;
+      video {
+        display: block;
+        width: 480px;
+        height: 270px;
+        object-fit: contain;
+        background-color: rgb(10, 10, 10);
+      }
+
+      .button-container {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+      }
+
+      .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s, transform 0.1s;
+      }
+
+      .btn:hover {
+        opacity: 0.9;
+      }
+
+      .btn:active {
+        transform: scale(0.98);
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .btn-start {
+        background-color: var(--color-light-gray);
+        color: white;
+      }
+
+      .btn-stop {
+        background-color: var(--color-red);
+        color: white;
+      }
+
+      .event-log-container {
+        background-color: var(--color-panel);
+        border-radius: 4px;
+        padding: 20px;
+        flex: 1;
         display: flex;
         flex-direction: column;
-        gap: 10px;
-        padding: 10px;
-        background-color: white;
-        border-radius: 5px;
-        color: black;
+        overflow: hidden;
       }
 
-      .abr-container {
-        display: flex;
-        column-gap: 20px;
+      .event-log-header {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--color-text);
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--color-border);
       }
 
-      .live-status-indicator {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        padding: 4px 12px;
-        background-color: red;
-        color: white;
-        font-weight: bold;
-        font-size: 14px;
-        border-radius: 5px;
-        z-index: 10;
-        pointer-events: none;
+      .event-log {
+        flex: 1;
+        overflow-y: auto;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .event-log-entry {
+        color: var(--color-text-muted);
+        margin-bottom: 4px;
+      }
+
+      .event-log-entry .timestamp {
+        color: var(--color-text-muted);
+      }
+
+      .event-log-entry .message {
+        color: var(--color-text);
       }
 
       .hidden {
         display: none;
       }
 
-      .connection-status-indicator {
+      .status-indicators {
         position: absolute;
         top: 10px;
         left: 10px;
-        padding: 4px 12px;
-        background-color: green;
-        color: white;
-        font-weight: bold;
-        font-size: 14px;
-        border-radius: 5px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
         z-index: 10;
         pointer-events: none;
       }
 
-      .lossy-status-indicator {
-        position: absolute;
-        top: 40px;
-        left: 10px;
+      .status-indicator {
         padding: 4px 12px;
-        background-color: red;
         color: white;
         font-weight: bold;
-        font-size: 14px;
-        border-radius: 5px;
-        z-index: 10;
-        pointer-events: none;
+        font-size: 12px;
+        border-radius: 4px;
       }
 
-      .recovery-status-indicator {
-        position: absolute;
-        top: 40px;
-        left: 10px;
-        padding: 4px 12px;
-        background-color: green;
-        color: white;
-        font-weight: bold;
-        font-size: 14px;
-        border-radius: 5px;
-        z-index: 10;
-        pointer-events: none;
+      .status-indicator.live {
+        background-color: var(--color-red);
       }
+
+      .status-indicator.connecting {
+        background-color: orange;
+      }
+
+      .status-indicator.lossy {
+        background-color: var(--color-red);
+      }
+
+      .status-indicator.recovery {
+        background-color: rgb(39, 174, 96);
+      }
+
+      .abr-container {
+        display: flex;
+        gap: 20px;
+        color: var(--color-text);
+        font-size: 13px;
+      }
+
+      .abr-field {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+      }
+
+      .abr-control {
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid var(--color-border);
+        background-color: var(--color-panel);
+        color: var(--color-text);
+        font-size: 13px;
+      }
+
     </style>
     </head>
     <body>
         <div class="app">
-            <div class="publisher-container">
-                <div id="connection-status-indicator" class="connection-status-indicator hidden">CONNECTING...</div>
-                <div id="live-status-indicator" class="live-status-indicator hidden">LIVE</div>
-                <video id="red5pro-publisher" class="red5pro-publisher" muted autoplay playsinline></video>
+            <div class="left-panel">
+                <div class="publisher-container">
+                    <div class="status-indicators">
+                        <div id="connection-status-indicator" class="status-indicator connecting hidden">CONNECTING...</div>
+                        <div id="live-status-indicator" class="status-indicator live hidden">LIVE</div>
+                        <div id="lossy-status-indicator" class="status-indicator lossy hidden">LOSSY</div>
+                        <div id="recovery-status-indicator" class="status-indicator recovery hidden">RECOVERY</div>
+                    </div>
+                    <video id="red5pro-publisher" class="red5pro-publisher" muted autoplay playsinline></video>
+                </div>
+                <div class="button-container">
+                    <button id="start-btn" class="btn btn-start">Start Streaming</button>
+                    <button id="stop-btn" class="btn btn-stop" disabled>Stop Streaming</button>
+                </div>
+                <div class="abr-container">
+                    <p class="abr-field">
+                        <label class="abr-label">Bandwidth (kbps):</label>
+                        <select id="bandwidth-select" class="abr-control">
+                            <option value="150">150</option>
+                            <option value="300">300</option>
+                            <option value="750">750</option>
+                            <option value="1000">1000</option>
+                            <option value="2500">2500</option>
+                            <option value="unlimited" selected>Unlimited</option>
+                        </select>
+                    </p>
+                    <p class="abr-field">
+                        <label class="abr-label">Scale:</label>
+                        <select id="scale-select" class="abr-control">
+                            <option value="8">1/8</option>
+                            <option value="4">1/4</option>
+                            <option value="2">1/2</option>
+                            <option value="1" selected>Original</option>
+                        </select>
+                    </p>
+                </div>
             </div>
-            <div class="lossy-status-indicator-container">
-                <div id="lossy-status-indicator" class="lossy-status-indicator hidden">LOSSY</div>
-                <div id="recovery-status-indicator" class="recovery-status-indicator hidden">RECOVERY</div>
-            </div>
-            <div class="abr-container">
-              <p class="abr-field">
-                  <label class="abr-label">Bandwidth (kbps):</label>
-                  <select id="bandwidth-select" class="abr-control">
-                    <option value="150">150</option>
-                    <option value="300">300</option>
-                    <option value="750" selected>750</option>
-                    <option value="1000">1000</option>
-                    <option value="2500">2500</option>
-                    <option value="unlimited">Unlimited</option>
-                  </select>
-                </p>
-                <p class="abr-field">
-                  <label class="abr-label">Scale Resolution:</label>
-                  <select id="scale-select" class="abr-control">
-                    <option value="8">1/8</option>
-                    <option value="4">1/4</option>
-                    <option value="2">1/2</option>
-                    <option value="1" selected>Original</option>
-                  </select>
-                </p>
-            </div>
-            <div class="stats-container">
+            <div class="right-panel stats-container">
+              <div class="event-log-container">
+                <div class="event-log-header">Stats</div>
                 <div id="media-constraints-accepted-requested" class="media-constraints-accepted-requested">Media Constraints Accepted Requested: 0x0</div>
                 <div id="media-constraints-accepted-accepted" class="media-constraints-accepted-accepted">Media Constraints Accepted Accepted: 0x0</div>
                 <div id="media-constraints" class="media-constraints">Current Outgoing Video Frame: 0x0</div>
@@ -278,6 +367,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                 <div id="packet-loss-rate" class="packet-loss-rate">Packet Loss Rate: 0</div>
                 <div id="rtt" class="rtt">RTT: 0</div>
                 <div id="pli-fir-rate" class="pli-fir-rate">PLI/FIR Rate: 0</div>
+              </div>
             </div>
         </div>
         <script>
@@ -285,7 +375,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
               const { WHIPClient, setLogLevel } = red5
               setLogLevel(red5.LOG_LEVELS.DEBUG)
 
-              const TARGET_BITRATE = 750
+              const TARGET_BITRATE = 2500
               const LOSSY_BITRATE = 300
               const thresholds = {
                   PACKET_LOSS_HIGH: 5,
@@ -312,7 +402,18 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
               const mediaConstraintsAcceptedAcceptedElement = document.getElementById('media-constraints-accepted-accepted')
               const bandwidthSelect = document.getElementById('bandwidth-select')
               const scaleSelect = document.getElementById('scale-select')
-      
+              const startBtn = document.getElementById('start-btn')
+              const stopBtn = document.getElementById('stop-btn')
+
+              const formatTime = (date) => {
+                return date.toLocaleTimeString('en-US', { 
+                  hour: 'numeric', 
+                  minute: '2-digit', 
+                  second: '2-digit',
+                  hour12: true 
+                })
+              }
+
               const searchParams = new URLSearchParams(window.location.search)
               const query = (param, defaultValue) => {
                 return searchParams.has(param) ? searchParams.get(param) : defaultValue
@@ -390,6 +491,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                 if (type === 'Publish.Available') {
                     connectionIndicator.classList.add('hidden')
                     liveIndicator.classList.remove('hidden')
+                    startBtn.disabled = true
+                    stopBtn.disabled = false
                 } else if (type === 'Publisher.Connection.Closed') {
                     unpublish()
                 } else if ( type === 'WebRTC.MediaConstraints.Accepted') {
@@ -402,7 +505,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                     const stats = statsMonitor.process(data)
                     if (stats) {
                         const { estimatedBitrate, frameWidth, frameHeight, framesEncoded, framesSent, packetLossRate, rtt, pliFirRate } = stats
-                        // TODO: place the stats in the DOM.
                         estimatedBitrateElement.textContent = `Estimated Bitrate: ${estimatedBitrate}`
                         framesEncodeSentRatioElement.textContent = `Frames Encode/Sent Ratio: ${framesEncoded / framesSent}`
                         packetLossRateElement.textContent = `Packet Loss Rate: ${packetLossRate}`
@@ -410,12 +512,14 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                         pliFirRateElement.textContent = `PLI/FIR Rate: ${pliFirRate}`
                         mediaConstraintsElement.textContent = `Current Outgoing Video Frame: ${frameWidth}x${frameHeight}`
                     }
+                    return
                 }
                 console.log('[Publisher]', type)
               }
       
               const publish = async () => {
                 try {
+                  startBtn.disabled = true
                   connectionIndicator.classList.remove('hidden')
                   const config = {
                     ...getConfiguration(),
@@ -448,12 +552,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                   publisher.on('*', onPublisherEvent)
                   await publisher.init(config)
                   await publisher.publish()
-                  // TODO: Remove below. Just for testing.
-                  publisherContainer.onclick = () => {
-                    unpublish()
-                  }
                 } catch (e) {
                   connectionIndicator.classList.add('hidden')
+                  startBtn.disabled = false
                   await unpublish()
                 }
               }
@@ -473,17 +574,24 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                 lossyIndicator.classList.add('hidden')
                 recoveryIndicator.classList.add('hidden')
                 connectionIndicator.classList.add('hidden')
+                startBtn.disabled = false
+                stopBtn.disabled = true
               }
       
-              const start = async () => {
+              const start = () => {
                 document.querySelectorAll('video').forEach(video => {
                   video.style.objectFit = objectFit
                 })
-                try {
-                  await publish()
-                } catch (e) {
-                  alert(`Could not start publisher: ${e.message}`)
-                }
+                startBtn.addEventListener('click', async () => {
+                  try {
+                    await publish()
+                  } catch (e) {
+                    console.error(`Could not start publisher: ${e.message}`)
+                  }
+                })
+                stopBtn.addEventListener('click', async () => {
+                  await unpublish()
+                })
               }
 
               const getVideoTrackSender = async (connection) => {
@@ -491,7 +599,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                 return senders.find(sender => sender.track.kind === 'video')
               }
 
-              const onLossy = async ({ packetLossRate, rtt }) => {
+              const onLossy = async ({ packetLossRate, rtt, pliFirRate }) => {
                 const videoTrackSender = await getVideoTrackSender(publisher.getPeerConnection())
                 if (videoTrackSender) {
                     const parameters = videoTrackSender.getParameters()
@@ -503,13 +611,12 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                     bandwidthSelect.value = `${LOSSY_BITRATE}`
                     scaleSelect.value = `${8}`
                     await videoTrackSender.setParameters(parameters)
-                    console.log('[stat] Monitor: onLossy', parameters)
                     lossyIndicator.classList.remove('hidden')
                     recoveryIndicator.classList.add('hidden')
                 }
-                console.log('[stat] Monitor: onLossy', packetLossRate, rtt)
+                console.log('[stat] Monitor: onLossy', packetLossRate, rtt, pliFirRate)
               }
-              const onRecovery = async ({ packetLossRate, rtt }) => {
+              const onRecovery = async ({ packetLossRate, rtt, pliFirRate }) => {
                 const videoTrackSender = await getVideoTrackSender(publisher.getPeerConnection())
                 if (videoTrackSender) {
                     const parameters = videoTrackSender.getParameters()
@@ -521,11 +628,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                     bandwidthSelect.value = `${TARGET_BITRATE}`
                     scaleSelect.value = `${1.0}`
                     await videoTrackSender.setParameters(parameters)
-                    console.log('[stat] Monitor: onRecovery', parameters)
                     recoveryIndicator.classList.remove('hidden')
                     lossyIndicator.classList.add('hidden')
                 }
-                console.log('[stat] Monitor: onRecovery', packetLossRate, rtt)
+                console.log('[stat] Monitor: onRecovery', packetLossRate, rtt, pliFirRate)
               }
 
               const onBandwidthChange = async () => {
