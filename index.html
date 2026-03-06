@@ -136,8 +136,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
         display: flex;
         flex-direction: column;
         row-gap: 16px;
-        width: 100%;
-        height: 100%;
+        width: 640px;
       }
 
       .app .video-container {
@@ -169,6 +168,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
         background-color: white;
         border-radius: 5px;
         color: black;
+      }
+
+      .abr-container {
+        display: flex;
+        column-gap: 20px;
       }
 
       .live-status-indicator {
@@ -237,11 +241,38 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
             <div class="publisher-container">
                 <div id="connection-status-indicator" class="connection-status-indicator hidden">CONNECTING...</div>
                 <div id="live-status-indicator" class="live-status-indicator hidden">LIVE</div>
-                <div id="lossy-status-indicator" class="lossy-status-indicator hidden">LOSSY</div>
-                <div id="recovery-status-indicator" class="recovery-status-indicator hidden">RECOVERY</div>
                 <video id="red5pro-publisher" class="red5pro-publisher" muted autoplay playsinline></video>
             </div>
+            <div class="lossy-status-indicator-container">
+                <div id="lossy-status-indicator" class="lossy-status-indicator hidden">LOSSY</div>
+                <div id="recovery-status-indicator" class="recovery-status-indicator hidden">RECOVERY</div>
+            </div>
+            <div class="abr-container">
+              <p class="abr-field">
+                  <label class="abr-label">Bandwidth (kbps):</label>
+                  <select id="bandwidth-select" class="abr-control">
+                    <option value="150">150</option>
+                    <option value="300">300</option>
+                    <option value="750" selected>750</option>
+                    <option value="1000">1000</option>
+                    <option value="2500">2500</option>
+                    <option value="unlimited">Unlimited</option>
+                  </select>
+                </p>
+                <p class="abr-field">
+                  <label class="abr-label">Scale Resolution:</label>
+                  <select id="scale-select" class="abr-control">
+                    <option value="8">1/8</option>
+                    <option value="4">1/4</option>
+                    <option value="2">1/2</option>
+                    <option value="1" selected>Original</option>
+                  </select>
+                </p>
+            </div>
             <div class="stats-container">
+                <div id="media-constraints-accepted-requested" class="media-constraints-accepted-requested">Media Constraints Accepted Requested: 0x0</div>
+                <div id="media-constraints-accepted-accepted" class="media-constraints-accepted-accepted">Media Constraints Accepted Accepted: 0x0</div>
+                <div id="media-constraints" class="media-constraints">Current Outgoing Video Frame: 0x0</div>
                 <div id="estimated-bitrate" class="estimated-bitrate">Estimated Bitrate: 0</div>
                 <div id="frames-encode-sent-ratio" class="frames-encode-sent-ratio">Frames Encode/Sent Ratio: 0</div>
                 <div id="packet-loss-rate" class="packet-loss-rate">Packet Loss Rate: 0</div>
@@ -254,6 +285,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
               const { WHIPClient, setLogLevel } = red5
               setLogLevel(red5.LOG_LEVELS.DEBUG)
 
+              const TARGET_BITRATE = 750
+              const LOSSY_BITRATE = 300
               const thresholds = {
                   PACKET_LOSS_HIGH: 5,
                   PACKET_LOSS_RECOVERY: 2,
@@ -274,6 +307,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
               const packetLossRateElement = document.getElementById('packet-loss-rate')
               const rttElement = document.getElementById('rtt')
               const pliFirRateElement = document.getElementById('pli-fir-rate')
+              const mediaConstraintsElement = document.getElementById('media-constraints')
+              const mediaConstraintsAcceptedRequestedElement = document.getElementById('media-constraints-accepted-requested')
+              const mediaConstraintsAcceptedAcceptedElement = document.getElementById('media-constraints-accepted-accepted')
+              const bandwidthSelect = document.getElementById('bandwidth-select')
+              const scaleSelect = document.getElementById('scale-select')
       
               const searchParams = new URLSearchParams(window.location.search)
               const query = (param, defaultValue) => {
@@ -296,6 +334,27 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
               let statsMonitor = new StatsMonitor({
                 thresholds
               })
+
+              const unwrapContraintsToString = constraints => {
+                const { video: { width, height } } = constraints
+                let w = width
+                let h = height
+                if (width.exact) {
+                  w = width.exact
+                } else if (width.min) {
+                  w = width.min
+                } else if (width.max) {
+                  w = width.max
+                }
+                if (height.exact) {
+                  h = height.exact
+                } else if (height.min) {
+                  h = height.min
+                } else if (height.max) {
+                  h = height.max
+                }
+                return `${w}x${h}`
+              }
       
               const configureAuth = params => {
                 if (rtaUser && rtaPass) {
@@ -331,17 +390,25 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                 if (type === 'Publish.Available') {
                     connectionIndicator.classList.add('hidden')
                     liveIndicator.classList.remove('hidden')
+                } else if (type === 'Publisher.Connection.Closed') {
+                    unpublish()
+                } else if ( type === 'WebRTC.MediaConstraints.Accepted') {
+                    const { requested, accepted } = event.data
+                    mediaConstraintsElement.textContent = `Current Outgoing Video Frame: ${unwrapContraintsToString(requested)}`
+                    mediaConstraintsAcceptedRequestedElement.textContent = `Media Constraints Accepted Requested: ${unwrapContraintsToString(requested)}`
+                    mediaConstraintsAcceptedAcceptedElement.textContent = `Media Constraints Accepted Accepted: ${unwrapContraintsToString(accepted)}`
                 } else if (type === 'WebRTC.Stats.Report') {
                     const { data } = event
                     const stats = statsMonitor.process(data)
                     if (stats) {
-                        const { estimatedBitrate, framesEncoded, framesSent, packetLossRate, rtt, pliFirRate } = stats
+                        const { estimatedBitrate, frameWidth, frameHeight, framesEncoded, framesSent, packetLossRate, rtt, pliFirRate } = stats
                         // TODO: place the stats in the DOM.
                         estimatedBitrateElement.textContent = `Estimated Bitrate: ${estimatedBitrate}`
                         framesEncodeSentRatioElement.textContent = `Frames Encode/Sent Ratio: ${framesEncoded / framesSent}`
                         packetLossRateElement.textContent = `Packet Loss Rate: ${packetLossRate}`
                         rttElement.textContent = `RTT: ${rtt}`
                         pliFirRateElement.textContent = `PLI/FIR Rate: ${pliFirRate}`
+                        mediaConstraintsElement.textContent = `Current Outgoing Video Frame: ${frameWidth}x${frameHeight}`
                     }
                 }
                 console.log('[Publisher]', type)
@@ -366,6 +433,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                                 max: 60
                             }
                         }
+                    },
+                    bandwidth: {
+                        audio: 128,
+                        video: TARGET_BITRATE
                     },
                     clearMediaOnUnpublish: true,
                     stats: {
@@ -427,8 +498,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                     if (!parameters.encodings) {
                         parameters.encodings = [{}]
                     }
-                    parameters.encodings[0].maxBitrate = 320 * 1000
-                    parameters.encodings[0].scaleResolutionDownBy = 4
+                    parameters.encodings[0].maxBitrate = LOSSY_BITRATE * 1000
+                    parameters.encodings[0].scaleResolutionDownBy = 8
+                    bandwidthSelect.value = `${LOSSY_BITRATE}`
+                    scaleSelect.value = `${8}`
                     await videoTrackSender.setParameters(parameters)
                     console.log('[stat] Monitor: onLossy', parameters)
                     lossyIndicator.classList.remove('hidden')
@@ -443,8 +516,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                     if (!parameters.encodings) {
                         parameters.encodings = [{}]
                     }
-                    parameters.encodings[0].maxBitrate = 750 * 1000
+                    parameters.encodings[0].maxBitrate = TARGET_BITRATE * 1000
                     parameters.encodings[0].scaleResolutionDownBy = 1
+                    bandwidthSelect.value = `${TARGET_BITRATE}`
+                    scaleSelect.value = `${1.0}`
                     await videoTrackSender.setParameters(parameters)
                     console.log('[stat] Monitor: onRecovery', parameters)
                     recoveryIndicator.classList.remove('hidden')
@@ -452,7 +527,39 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
                 }
                 console.log('[stat] Monitor: onRecovery', packetLossRate, rtt)
               }
-      
+
+              const onBandwidthChange = async () => {
+                const value = bandwidthSelect.value
+                const videoTrackSender = await getVideoTrackSender(publisher.getPeerConnection())
+                if (videoTrackSender) {
+                    const parameters = videoTrackSender.getParameters()
+                    if (!parameters.encodings) {
+                        parameters.encodings = [{}]
+                    }
+                    if (value === 'unlimited') {
+                      delete parameters.encodings[0].maxBitrate
+                    } else {
+                      parameters.encodings[0].maxBitrate = parseInt(value, 10) * 1000
+                    }
+                    await videoTrackSender.setParameters(parameters)
+                }
+              }
+              const onScaleChange = async () => {
+                const value = scaleSelect.value
+                const videoTrackSender = await getVideoTrackSender(publisher.getPeerConnection())
+                if (videoTrackSender) {
+                    const parameters = videoTrackSender.getParameters()
+                    if (!parameters.encodings) {
+                        parameters.encodings = [{}]
+                    }
+                    parameters.encodings[0].scaleResolutionDownBy = 1 / parseInt(value, 10)
+                    await videoTrackSender.setParameters(parameters)
+                }
+              }
+     
+              bandwidthSelect.addEventListener('change', onBandwidthChange)
+              scaleSelect.addEventListener('change', onScaleChange)
+
               // Clean up on leave of page.
               window.addEventListener('beforeunload', async () => {
                 shuttingDown = true

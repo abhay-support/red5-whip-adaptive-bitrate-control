@@ -139,27 +139,32 @@
             if (isVideoOut) {
                 const {
                     estimatedBitrate,
+                    frameWidth,
+                    frameHeight,
                     framesEncoded,
                     framesSent,
                     packetsSent,
                     retransmittedPacketsSent,
                     pliCount = 0,
-                    firCount = 0
+                    firCount = 0,
+                    nackCount = 0
                 } = reportData
 
                 const packetLossRate = this.calculatePacketLossRate(packetsSent, retransmittedPacketsSent)
                 const pliFirRate = this.calculatePliFirRate(pliCount, firCount)
                 this.lastPliFirRate = pliFirRate
 
+                console.log('[stat] frameWidth', frameWidth)
+                console.log('[stat] frameHeight', frameHeight)
                 console.log('[stat] estimatedBitrate', estimatedBitrate)
                 console.log('[stat] frames Encode/Sent', framesEncoded / framesSent)
                 console.log('[stat] Packet Loss Rate', packetLossRate.toFixed(2) + '%')
                 console.log('[stat] RTT', this.lastRtt)
-                console.log('[stat] PLI/FIR Rate', pliFirRate, `(pli: ${pliCount}, fir: ${firCount})`)
+                console.log('[stat] PLI/FIR Rate', pliFirRate, `(pli: ${pliCount}, fir: ${firCount}, nack: ${nackCount})`)
                 console.log('[stat] ========================================')
 
                 this.evaluateConditions(packetLossRate, this.lastRtt, pliFirRate)
-                return { estimatedBitrate, framesEncoded, framesSent, packetLossRate, rtt: this.lastRtt, pliFirRate }
+                return { estimatedBitrate, frameWidth, frameHeight, framesEncoded, framesSent, packetLossRate, rtt: this.lastRtt, pliFirRate }
             }
             return null
         }
