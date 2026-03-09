@@ -29,8 +29,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
     <meta name="robots" content="noindex, nofollow" />
     <title>Red5 WHIP Adaptive Bitrate Controller</title>
     <script src="//webrtchacks.github.io/adapter/adapter-latest.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/red5pro-webrtc-sdk@15.4.0-alpha.1/red5pro-sdk.min.js"></script>
     <!-- <script src="//cdn.jsdelivr.net/npm/red5pro-webrtc-sdk@latest/red5pro-sdk.min.js"></script> -->
-    <script src="lib/red5pro/red5pro-sdk.min.js"></script>
     <script src="script/StatsMonitor.js"></script>
     <script>
         ;(function () {
@@ -404,15 +404,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
               const scaleSelect = document.getElementById('scale-select')
               const startBtn = document.getElementById('start-btn')
               const stopBtn = document.getElementById('stop-btn')
-
-              const formatTime = (date) => {
-                return date.toLocaleTimeString('en-US', { 
-                  hour: 'numeric', 
-                  minute: '2-digit', 
-                  second: '2-digit',
-                  hour12: true 
-                })
-              }
 
               const searchParams = new URLSearchParams(window.location.search)
               const query = (param, defaultValue) => {
